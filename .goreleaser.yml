@@ -51,4 +51,4 @@ brews:
     description: Website Cloner - Utilizes powerful Go routines to clone websites to your computer within seconds.
 
 upx:
-  - enabled: true
+  - enabled: false
