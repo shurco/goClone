@@ -1,0 +1,54 @@
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X "main.version={{.Version}}"
+      - -s -w -X "main.gitCommit={{.ShortCommit}}"
+      - -s -w -X "main.buildDate={{.Date}}"
+    main: ./cmd/main.go
+    binary: goclone
+
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "README"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - repository:
+      owner: shurco
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/shurco/goclone
+    description: Website Cloner - Utilizes powerful Go routines to clone websites to your computer within seconds.
+
+upx:
+  - enabled: true
