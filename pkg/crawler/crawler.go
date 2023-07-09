@@ -21,13 +21,14 @@ import (
 )
 
 type Flags struct {
-	Open        bool
-	Serve       bool
-	ServePort   int
-	UserAgent   string
-	ProxyString string
-	Cookies     bool
-	Robots      bool
+	Open            bool
+	Serve           bool
+	ServePort       int
+	UserAgent       string
+	ProxyString     string
+	Cookies         bool
+	Robots          bool
+	BrowserEndpoint string
 }
 
 type filesBase struct {
@@ -71,6 +72,12 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 	}
 	if flag.ProxyString != "" {
 		geziyorOptions.ProxyFunc = client.RoundRobinProxy(flag.ProxyString)
+	}
+	if flag.BrowserEndpoint != "" {
+		geziyorOptions.BrowserEndpoint = flag.BrowserEndpoint
+		geziyorOptions.StartRequestsFunc = func(g *geziyor.Geziyor) {
+			g.GetRendered(domain, g.Opt.ParseFunc)
+		}
 	}
 
 	geziyor.NewGeziyor(geziyorOptions).Start()
@@ -119,8 +126,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Css found", "-->", parsedURL)
 				if !files.css.Contains(parsedURL.Path) {
 					files.css = append(files.css, parsedURL.Path)
-					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
-
+					go netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 					g.Get(r.JoinURL(projectURL.String()+parsedURL.Path), parseCSS)
 				}
 
@@ -142,7 +148,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Js found", "-->", parsedURL)
 				if !files.js.Contains(parsedURL.Path) {
 					files.js = append(files.js, parsedURL.Path)
-					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+					go netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 				}
 
 				body = strings.Replace(body, data, "/assets/js/"+filepath.Base(data), -1)
@@ -162,7 +168,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Js found", "-->", parsedURL)
 				if !files.js.Contains(parsedURL.Path) {
 					files.js = append(files.js, parsedURL.Path)
-					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+					go netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 				}
 
 				body = strings.Replace(body, data, "/assets/js/"+filepath.Base(data), -1)
@@ -186,7 +192,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Img found", "-->", parsedURL)
 				if !files.img.Contains(parsedURL.Path) {
 					files.img = append(files.img, parsedURL.Path)
-					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+					go netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 				}
 
 				body = strings.Replace(body, data, "/assets/img/"+filepath.Base(data), -1)

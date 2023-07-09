@@ -53,6 +53,7 @@ func main() {
 	pf.StringVarP(&flags.UserAgent, "user_agent", "u", "goclone", "custom User-Agent")
 	pf.BoolVarP(&flags.Cookies, "cookie", "c", false, "if set true, cookies won't send")
 	pf.BoolVarP(&flags.Robots, "robots", "r", false, "disable robots.txt checks")
+	pf.StringVarP(&flags.BrowserEndpoint, "browser_endpoint", "b", "", "chrome headless browser WS endpoint")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)

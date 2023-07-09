@@ -45,13 +45,30 @@ Usage:
   goclone <url> [flags]
 
 Flags:
-  -c, --cookie                if set true, cookies won't send
-  -h, --help                  help for goclone
-  -o, --open                  automatically open project in default browser
-  -p, --proxy_string string   proxy connection string
-  -r, --robots                disable robots.txt checks
-  -s, --serve                 serve the generated files using gofiber
-  -P, --servePort int         serve port number (default 8088)
-  -u, --user_agent string     custom User-Agent (default "goclone")
-  -v, --version               version for goclone
+  -b, --browser_endpoint string   chrome headless browser WS endpoint
+  -c, --cookie                    if set true, cookies won't send
+  -h, --help                      help for goclone
+  -o, --open                      automatically open project in default browser
+  -p, --proxy_string string       proxy connection string
+  -r, --robots                    disable robots.txt checks
+  -s, --serve                     serve the generated files using gofiber
+  -P, --servePort int             serve port number (default 8088)
+  -u, --user_agent string         custom User-Agent (default "goclone")
+  -v, --version                   version for goclone
 ```
+
+## Making JS Rendered Requests
+
+JS Rendered requests can be made using ```-b``` flag. For example start image :  
+
+
+``` bash
+docker run -d -p 9222:9222 --rm --name headless-shell chromedp/headless-shell
+```
+
+then run goclone: 
+
+```bash
+goclone -b "ws://localhost:9222" https://domain.com
+```
+
