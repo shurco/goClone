@@ -35,6 +35,7 @@ type filesBase struct {
 	css   arrutil.Strings
 	js    arrutil.Strings
 	img   arrutil.Strings
+	font  arrutil.Strings
 }
 
 var (
@@ -78,6 +79,7 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 	fmt.Printf("CSS files: %v\n", files.css.Length())
 	fmt.Printf("JS files: %v\n", files.js.Length())
 	fmt.Printf("Img files: %v\n", files.img.Length())
+	fmt.Printf("Font files: %v\n", files.font.Length())
 
 	if flag.Open {
 		cmd := open(projectPath + "/index.html")
@@ -98,7 +100,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 	files = filesBase{}
 
 	body := string(r.Body)
-	fmt.Print("path: " + r.Response.Request.URL.Path + "\n")
+	fmt.Printf("page: %s://%s%s\n", projectURL.Scheme, projectURL.Host, r.Response.Request.URL.Path)
 
 	// search for all link tags that have a rel attribute that is equal to stylesheet - CSS
 	r.HTMLDoc.Find("link[rel='stylesheet']").Each(func(i int, s *goquery.Selection) {
@@ -109,11 +111,13 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Error parsing URL:", err)
 			}
 
-			if projectURL.Host == parsedURL.Host {
+			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
 				fmt.Println("Css found", "-->", parsedURL)
 				if !files.css.Contains(parsedURL.Path) {
 					files.css = append(files.css, parsedURL.Path)
-					netutil.Extractor(parsedURL.String(), projectPath)
+					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+
+					g.Get(r.JoinURL(projectURL.String()+parsedURL.Path), parseCSS)
 				}
 
 				body = strings.Replace(body, data, "/assets/css/"+filepath.Base(data), -1)
@@ -130,11 +134,31 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Error parsing URL:", err)
 			}
 
-			if projectURL.Host == parsedURL.Host {
+			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
 				fmt.Println("Js found", "-->", parsedURL)
 				if !files.js.Contains(parsedURL.Path) {
 					files.js = append(files.js, parsedURL.Path)
-					netutil.Extractor(parsedURL.String(), projectPath)
+					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+				}
+
+				body = strings.Replace(body, data, "/assets/js/"+filepath.Base(data), -1)
+			}
+		}
+	})
+
+	r.HTMLDoc.Find("link[rel='preload']").Each(func(i int, s *goquery.Selection) {
+		data, exists := s.Attr("href")
+		if exists {
+			parsedURL, err := url.Parse(data)
+			if err != nil {
+				fmt.Println("Error parsing URL:", err)
+			}
+
+			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
+				fmt.Println("Js found", "-->", parsedURL)
+				if !files.js.Contains(parsedURL.Path) {
+					files.js = append(files.js, parsedURL.Path)
+					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 				}
 
 				body = strings.Replace(body, data, "/assets/js/"+filepath.Base(data), -1)
@@ -150,20 +174,26 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 			if err != nil {
 				fmt.Println("Error parsing URL:", err)
 			}
-			if strings.HasPrefix(parsedURL.String(), "data:image") || strings.HasPrefix(parsedURL.String(), "blob:") {
+			if strings.HasPrefix(projectURL.String()+parsedURL.Path, "data:image") || strings.HasPrefix(projectURL.String()+parsedURL.Path, "blob:") {
 				return
 			}
 
-			if projectURL.Host == parsedURL.Host {
+			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
 				fmt.Println("Img found", "-->", parsedURL)
 				if !files.img.Contains(parsedURL.Path) {
 					files.img = append(files.img, parsedURL.Path)
-					netutil.Extractor(parsedURL.String(), projectPath)
+					netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
 				}
 
 				body = strings.Replace(body, data, "/assets/img/"+filepath.Base(data), -1)
 			}
 		}
+	})
+
+	// search for all src in css in code
+	r.HTMLDoc.Find("style").Each(func(i int, s *goquery.Selection) {
+		data := s.Text()
+		body = readCSS(data, body)
 	})
 
 	r.HTMLDoc.Find("a").Each(func(i int, s *goquery.Selection) {
@@ -174,7 +204,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 				fmt.Println("Error parsing URL:", err)
 			}
 
-			if projectURL.Host == parsedURL.Host && parsedURL.Path != "" && parsedURL.Path != "/" {
+			if (parsedURL.Host == projectURL.Host || parsedURL.Host == "") && parsedURL.Path != "/" {
 				if !files.pages.Contains(parsedURL.Path) {
 					files.pages = append(files.pages, parsedURL.Path)
 				}

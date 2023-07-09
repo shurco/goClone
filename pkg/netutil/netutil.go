@@ -13,13 +13,18 @@ import (
 
 var (
 	extensionDir = map[string]string{
-		".css":  "assets/css",
-		".js":   "assets/js",
-		".jpg":  "assets/img",
-		".jpeg": "assets/img",
-		".gif":  "assets/img",
-		".png":  "assets/img",
-		".svg":  "assets/img",
+		".css":   "assets/css",
+		".js":    "assets/js",
+		".jpg":   "assets/img",
+		".jpeg":  "assets/img",
+		".gif":   "assets/img",
+		".png":   "assets/img",
+		".svg":   "assets/img",
+		".eot":   "assets/font",
+		".otf":   "assets/font",
+		".ttf":   "assets/font",
+		".woff":  "assets/font",
+		".woff2": "assets/font",
 	}
 )
 
@@ -52,12 +57,21 @@ func Extractor(link string, projectPath string) {
 	}
 }
 
+// GetAssetDir is ...
+func GetAssetDir(filename string) string {
+	dirPath := extensionDir[urlExtension(filename)]
+	if dirPath != "" {
+		return dirPath
+	}
+	return ""
+}
+
 func urlExtension(URL string) string {
 	ext := path.Ext(URL)
 	if len(ext) > 5 {
-		match, _ := regexp.MatchString(`^[a-zA-Z]+$`, ext[1:])
+		match, _ := regexp.MatchString(`^[a-zA-Z0-9]+$`, ext[1:])
 		if !match {
-			ext = ext[:2] // Assuming you want to keep the first character of the extension
+			ext = ext[:2]
 		}
 	}
 	return ext
