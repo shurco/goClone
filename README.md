@@ -14,6 +14,8 @@ Goclone empowers you to have offline access to websites, making it convenient fo
 
 So go ahead, give Goclone a try and experience the freedom of having your favorite websites at your fingertips, even when you're offline!
 
+![Example](/.github/media/example.gif)
+
 <a name="manual"></a>
 
 ### Manual
