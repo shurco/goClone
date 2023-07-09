@@ -27,6 +27,7 @@ type Flags struct {
 	UserAgent   string
 	ProxyString string
 	Cookies     bool
+	Robots      bool
 }
 
 type filesBase struct {
@@ -59,12 +60,13 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 	projectPath = filepath.Join(fsutil.Workdir(), projectURL.Host)
 
 	geziyorOptions := &geziyor.Options{
-		AllowedDomains:  []string{projectURL.Host},
-		StartURLs:       []string{domain},
-		ParseFunc:       quotesParse,
-		UserAgent:       flag.UserAgent,
-		CookiesDisabled: flag.Cookies,
-		LogDisabled:     true,
+		AllowedDomains:    []string{projectURL.Host},
+		StartURLs:         []string{domain},
+		ParseFunc:         quotesParse,
+		UserAgent:         flag.UserAgent,
+		CookiesDisabled:   flag.Cookies,
+		RobotsTxtDisabled: flag.Robots,
+		LogDisabled:       true,
 	}
 	if flag.ProxyString != "" {
 		geziyorOptions.ProxyFunc = client.RoundRobinProxy(flag.ProxyString)
