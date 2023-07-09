@@ -82,7 +82,11 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 	fmt.Printf("Font files: %v\n", files.font.Length())
 
 	if flag.Open {
-		cmd := open(projectPath + "/index.html")
+		url := projectPath + "/index.html"
+		if flag.Serve {
+			url = fmt.Sprintf("http://localhost:%d/index.html", flag.ServePort)
+		}
+		cmd := open(url)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("%v: %w", cmd.Args, err)
 		}
