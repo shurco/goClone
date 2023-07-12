@@ -32,23 +32,56 @@ checksum:
 snapshot:
   name_template: "{{ .Tag }}-next"
 
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "README"
-      - Merge pull request
-      - Merge branch
-
 brews:
   - repository:
       owner: shurco
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/shurco/goclone
-    description: Website Cloner - Utilizes powerful Go routines to clone websites to your computer within seconds.
+    description: "goclone - clone websites in a matter of seconds."
+    license: "MIT"
 
 upx:
   - enabled: false
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - init
+      - "^.*?ci:"
+      - "^.*?test:"
+      - "^.*?build(deps):"
+      - "^.*?build:"
+      - "README"
+      - "Up"
+      - "merge conflict"
+      - Bump
+      - Small fix
+      - Update
+      - Updating
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+      - go mod tidy
+  groups:
+    - title: Dependency updates
+      regexp: '^.*?(feat|fix)\(deps\)!?:.+$'
+      order: 300
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: "Security updates"
+      regexp: '^.*?sec(\([[:word:]]+\))??!?:.+$'
+      order: 150
+    - title: "Bug fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: "Documentation updates"
+      regexp: ^.*?doc(\([[:word:]]+\))??!?:.+$
+      order: 400
+    - title: "Build process updates"
+      regexp: ^.*?build(\([[:word:]]+\))??!?:.+$
+      order: 400
+    - title: Other work
+      order: 9999
