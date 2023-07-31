@@ -1,10 +1,11 @@
-<p align="center">
-  <a href="https://github.com/shurco/goclone/releases"><img src="https://img.shields.io/github/v/release/shurco/goclone?sort=semver&label=Release&color=651FFF"></a>
-   <a href="https://goreportcard.com/report/github.com/shurco/goclone"><img src="https://goreportcard.com/badge/github.com/shurco/goclone"></a>
-   <a href="https://www.codefactor.io/repository/github/shurco/goclone"><img src="https://www.codefactor.io/repository/github/shurco/goclone/badge" alt="CodeFactor" /></a>
-   <a href="https://github.com/shurco/goclone/actions/workflows/release.yml"><img src="https://github.com/shurco/goclone/actions/workflows/release.yml/badge.svg"></a>
-   <a href="https://github.com/shurco/goclone/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
-</p>
+# 🌱 goclone
+
+<a href="https://github.com/shurco/goclone/releases"><img src="https://img.shields.io/github/v/release/shurco/goclone?sort=semver&label=Release&color=651FFF"></a>
+<a href="https://goreportcard.com/report/github.com/shurco/goclone"><img src="https://goreportcard.com/badge/github.com/shurco/goclone"></a>
+<a href="https://www.codefactor.io/repository/github/shurco/goclone"><img src="https://www.codefactor.io/repository/github/shurco/goclone/badge" alt="CodeFactor" /></a>
+<a href="https://github.com/shurco/goclone/actions/workflows/release.yml"><img src="https://github.com/shurco/goclone/actions/workflows/release.yml/badge.svg"></a>
+<a href="https://github.com/shurco/goclone/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+
 
 Goclone is a powerful utility that enables you to effortlessly download entire websites from the Internet and save them to your local directory. With Goclone, you can easily obtain HTML, CSS, JavaScript, images, and other associated files directly from the server and store them on your computer.
 
