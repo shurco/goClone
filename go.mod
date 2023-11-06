@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/geziyor/geziyor v0.0.0-20230315135110-a242b58aaa65
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 )
 
 require (
