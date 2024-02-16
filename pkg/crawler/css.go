@@ -19,7 +19,7 @@ func parseCSS(g *geziyor.Geziyor, r *client.Response) {
 	body := string(r.Body)
 	base := path.Base(r.Request.URL.Path)
 
-	index, err := fsutil.OpenFile(projectPath+"/assets/css/"+base, fsutil.FsCWFlags, 0666)
+	index, err := fsutil.OpenFile(projectPath+"/assets/css/"+base, fsutil.FsCWFlags, 0o666)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,27 +41,33 @@ func readCSS(data, body string) string {
 
 		matches := regExp.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
-			parsedURL, err := url.Parse(match[1])
+			link := strings.ReplaceAll(match[1], `'`, "")
+			link = strings.ReplaceAll(link, `"`, "")
+			parsedURL, err := url.Parse(link)
 			if err != nil {
 				fmt.Println("Error parsing URL:", err)
 			}
 
 			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
 				folder := netutil.GetAssetDir(parsedURL.Path)
+				link := domain + strings.ReplaceAll("/"+parsedURL.Path, "//", "/")
+
 				switch folder {
-				case "assets/font":
-					if !files.font.Contains(parsedURL.Path) {
-						files.font = append(files.font, parsedURL.Path)
-						netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+				case netutil.Folders["font"]:
+					if !contains(files.font, link) {
+						fmt.Println("Font found", "-->", link)
+						files.font = append(files.font, link)
+						netutil.Extractor(link, projectPath)
 					}
 
-				case "assets/img":
-					if !files.img.Contains(parsedURL.Path) {
-						files.img = append(files.img, parsedURL.Path)
-						netutil.Extractor(projectURL.String()+parsedURL.Path, projectPath)
+				case netutil.Folders["img"]:
+					if !contains(files.img, link) {
+						fmt.Println("Img found", "-->", link)
+						files.img = append(files.img, link)
+						netutil.Extractor(link, projectPath)
 					}
 				}
-				body = strings.Replace(body, match[1], "/"+folder+"/"+filepath.Base(match[1]), -1)
+				body = strings.Replace(body, link, "/"+folder+"/"+filepath.Base(link), -1)
 			}
 		}
 	}

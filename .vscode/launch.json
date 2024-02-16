@@ -7,7 +7,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/",
-      "args": ["-s","-r", "https://www.hellokuya.co"]
-    },
+      "args": ["-s", "-r", "https://www.hellokuya.co"]
+    }
   ]
 }
