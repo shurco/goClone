@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shurco/goclone/pkg/crawler"
+	"github.com/shurco/goClone/pkg/crawler"
 )
 
 var (

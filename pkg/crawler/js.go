@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/shurco/goclone/pkg/netutil"
+	"github.com/shurco/goClone/pkg/netutil"
 )
 
 func saveJS(parsedURL *url.URL, body string) string {

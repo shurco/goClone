@@ -15,8 +15,8 @@ import (
 	"github.com/geziyor/geziyor"
 	"github.com/geziyor/geziyor/client"
 
-	"github.com/shurco/goclone/pkg/fsutil"
-	"github.com/shurco/goclone/pkg/netutil"
+	"github.com/shurco/goClone/pkg/fsutil"
+	"github.com/shurco/goClone/pkg/netutil"
 )
 
 func CloneSite(ctx context.Context, args []string, flag Flags) error {

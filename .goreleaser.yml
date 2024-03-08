@@ -37,7 +37,7 @@ brews:
       owner: shurco
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/shurco/goclone
+    homepage: https://github.com/shurco/goClone
     description: "goclone - clone websites in a matter of seconds."
     license: "MIT"
 

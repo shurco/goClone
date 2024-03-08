@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/shurco/goclone/pkg/fsutil"
+	"github.com/shurco/goClone/pkg/fsutil"
 )
 
 var Folders = map[string]string{
@@ -99,9 +99,6 @@ func IsValidDomain(domain string) bool {
 
 // ReplaceSlashWithDash is ...
 func ReplaceSlashWithDash(input string) string {
-	if strings.HasPrefix(input, "/") {
-		input = input[1:]
-	}
-
+	input = strings.TrimPrefix(input, "/")
 	return strings.ReplaceAll(input, "/", "-")
 }
