@@ -13,7 +13,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/chromedp/cdproto v0.0.0-20240304214822-eeb3d13057c9 // indirect
+	github.com/chromedp/cdproto v0.0.0-20240312231614-1e5096e63154 // indirect
 	github.com/chromedp/chromedp v0.9.5 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/go-kit/kit v0.13.0 // indirect
@@ -25,7 +25,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.50.0 // indirect
+	github.com/prometheus/common v0.51.0 // indirect
 	github.com/prometheus/procfs v0.13.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
