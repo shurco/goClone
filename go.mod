@@ -1,7 +1,7 @@
 module github.com/shurco/goClone
 
 go 1.22
-toolchain go1.23.1
+toolchain go1.24.1
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.2
@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/procfs v0.15.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
