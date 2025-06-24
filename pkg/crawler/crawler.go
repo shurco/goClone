@@ -105,7 +105,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 					g.Get(r.JoinURL(link), parseCSS)
 				}
 
-				newLink := "/" + netutil.Folders["css"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
+				newLink := netutil.Folders["css"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
 				body = strings.Replace(body, data, newLink, -1)
 			}
 		}
@@ -308,7 +308,16 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 		files.pages = append(files.pages, urlPath)
 	}
 
-	index, err := fsutil.OpenFile(projectPath+urlPath+"/index.html", fsutil.FsCWFlags, 0o666)
+	// Fix the file path issue - handle empty urlPath properly
+	var filePath string
+	cleanURLPath := strings.TrimPrefix(urlPath, "/")
+	if cleanURLPath == "" {
+		filePath = filepath.Join(projectPath, "index.html")
+	} else {
+		filePath = filepath.Join(projectPath, cleanURLPath, "index.html")
+	}
+
+	index, err := fsutil.OpenFile(filePath, fsutil.FsCWFlags, 0o666)
 	if err != nil {
 		log.Fatal(err)
 	}
