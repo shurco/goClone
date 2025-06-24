@@ -19,7 +19,7 @@ func parseCSS(g *geziyor.Geziyor, r *client.Response) {
 	body := string(r.Body)
 	base := path.Base(r.Request.URL.Path)
 
-	index, err := fsutil.OpenFile(projectPath+"/assets/css/"+base, fsutil.FsCWFlags, 0o666)
+	index, err := fsutil.OpenFile(filepath.Join(projectPath, "assets/css", base), fsutil.FsCWFlags, 0o666)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -18,7 +18,7 @@ func saveIMG(parsedURL *url.URL, body string) string {
 			go netutil.Extractor(link, projectPath)
 		}
 
-		newLink := "/" + netutil.Folders["img"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
+		newLink := netutil.Folders["img"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
 		return strings.Replace(body, link, newLink, -1)
 	}
 	return body

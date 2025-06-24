@@ -18,7 +18,7 @@ func saveJS(parsedURL *url.URL, body string) string {
 			go netutil.Extractor(link, projectPath)
 		}
 
-		newLink := "/" + netutil.Folders["js"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
+		newLink := netutil.Folders["js"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
 		return strings.Replace(body, link, newLink, -1)
 	}
 	return body

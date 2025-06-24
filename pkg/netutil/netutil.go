@@ -46,7 +46,7 @@ func Extractor(link, projectPath string) {
 	ext := urlExtension(resp.Request.URL.Path)
 
 	if ext != "" {
-		dirPath := "/" + Extensions[ext] + "/"
+		dirPath := Extensions[ext] + "/"
 		if dirPath != "" {
 			name := ReplaceSlashWithDash(resp.Request.URL.Path)
 
@@ -63,7 +63,7 @@ func Extractor(link, projectPath string) {
 
 // GetAssetDir is ...
 func GetAssetDir(filename string) string {
-	dirPath := "/" + Extensions[urlExtension(filename)] + "/"
+	dirPath := Extensions[urlExtension(filename)] + "/"
 	if dirPath != "" {
 		return dirPath
 	}
