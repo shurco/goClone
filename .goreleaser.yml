@@ -1,3 +1,5 @@
+version: 2
+
 env:
   - GO111MODULE=on
   - CGO_ENABLED=0
@@ -18,11 +20,11 @@ builds:
     binary: goclone
 
 archives:
-  - format: tar.gz
+  - name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+    format: tar.gz
     format_overrides:
       - goos: windows
         format: zip
-    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
     files:
       - README.md
 
@@ -31,15 +33,6 @@ checksum:
 
 snapshot:
   name_template: "{{ .Tag }}-next"
-
-brews:
-  - repository:
-      owner: shurco
-      name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/shurco/goClone
-    description: "goclone - clone websites in a matter of seconds."
-    license: "MIT"
 
 upx:
   - enabled: false
