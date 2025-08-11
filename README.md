@@ -64,16 +64,20 @@ Usage:
   goclone <url> [flags]
 
 Flags:
-  -b, --browser_endpoint string   chrome headless browser WS endpoint
-  -c, --cookie                    if set true, cookies won't send
-  -h, --help                      help for goclone
-  -o, --open                      automatically open project in default browser
-  -p, --proxy_string string       proxy connection string
-  -r, --robots                    disable robots.txt checks
-  -s, --serve                     serve the generated files using gofiber
-  -P, --servePort int             serve port number (default 8088)
-  -u, --user_agent string         custom User-Agent (default "goclone")
-  -v, --version                   version for goclone
+  -b, --browser_endpoint string        chrome headless browser WS endpoint
+  -c, --cookie                         if set true, cookies won't send
+  -h, --help                           help for goclone
+  -o, --open                           automatically open project in default browser
+  -p, --proxy_string string            proxy connection string
+  -r, --robots                         disable robots.txt checks
+  -s, --serve                          serve the generated files using gofiber
+  -P, --servePort int                  serve port number (default 8088)
+  -u, --user_agent string              custom User-Agent (default "goclone")
+      --assets_root string             root directory for downloaded assets (default "assets")
+      --max_concurrent_downloads int   maximum number of concurrent downloads (default 8)
+      --max_download_mb int            maximum size of a downloaded asset in MB (default 50)
+      --http_timeout_seconds int       HTTP request timeout for asset downloads (seconds) (default 20)
+  -v, --verbose                        enable verbose logging
 ```
 
 ## Making JS Rendered Requests
@@ -90,4 +94,43 @@ then run goclone:
 ```bash
 goclone -b "ws://localhost:9222" https://domain.com
 ```
+
+## JS-rendered pages (browser_endpoint)
+
+To crawl JS-rendered pages, run with a Chrome DevTools endpoint and pass it via `-b/--browser_endpoint`.
+
+Example:
+
+```bash
+# Start Chrome headless with DevTools (Docker)
+docker run -d -p 9222:9222 --rm --name headless chromedp/headless-shell:stable
+# Retrieve full DevTools WS URL (optional)
+curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl
+# Run goclone with rendering
+goclone -b ws://127.0.0.1:9222 https://example.com
+```
+
+### Linux notes (Docker networking)
+If you run Chrome inside Docker on Linux, the container might not be able to reach `http://127.0.0.1:<port>` served on the host. Use one of the following approaches:
+
+- Host networking (simple and recommended for local testing):
+  ```bash
+  docker rm -f headless || true
+  docker run -d --net=host --rm --name headless chromedp/headless-shell:stable
+  goclone -b ws://127.0.0.1:9222 http://127.0.0.1:18088
+  ```
+- Shared Docker network with a server in a container:
+  ```bash
+  docker network create goclone-net || true
+  docker run -d --network goclone-net --name headless chromedp/headless-shell:stable
+  docker run -d --network goclone-net --name web -p 18088:18088 your/web:latest
+  goclone -b ws://127.0.0.1:9222 http://web:18088
+  ```
+- Use the host IP address reachable from the container (instead of 127.0.0.1):
+  ```bash
+  HOST_IP=$(ip route | awk '/default/ {print $3}')
+  goclone -b ws://127.0.0.1:9222 http://$HOST_IP:18088
+  ```
+
+If rendering produces errors like `ERR_CONNECTION_REFUSED` or `ERR_NAME_NOT_RESOLVED`, adjust Docker networking as above and ensure you pass the full DevTools WebSocket URL from `/json/version` if necessary.
 

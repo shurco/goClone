@@ -24,12 +24,12 @@ func parseCSS(g *geziyor.Geziyor, r *client.Response) {
 		log.Fatal(err)
 	}
 
-	if _, err := fsutil.WriteOSFile(index, readCSS(body, body)); err != nil {
+	if _, err := fsutil.WriteOSFile(index, readCSS(body, body, r.Request.URL)); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func readCSS(data, body string) string {
+func readCSS(data, body string, base *url.URL) string {
 	lines := strings.Split(data, "\n")
 
 	for _, line := range lines {
@@ -41,33 +41,43 @@ func readCSS(data, body string) string {
 
 		matches := regExp.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
-			link := strings.ReplaceAll(match[1], `'`, "")
-			link = strings.ReplaceAll(link, `"`, "")
-			parsedURL, err := url.Parse(link)
+			original := match[1]
+			clean := strings.ReplaceAll(strings.ReplaceAll(original, `'`, ""), `"`, "")
+			parsedURL, err := url.Parse(clean)
 			if err != nil {
 				fmt.Println("Error parsing URL:", err)
+				continue
 			}
 
-			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
-				folder := netutil.GetAssetDir(parsedURL.Path)
-				link := domain + strings.ReplaceAll("/"+parsedURL.Path, "//", "/")
+			// resolve relative to base (CSS file or page URL)
+			resolved := base.ResolveReference(parsedURL)
+			if resolved.Scheme == "data" || resolved.Scheme == "blob" {
+				continue
+			}
+
+			if resolved.Host == projectURL.Host || resolved.Host == "" {
+				folder := netutil.GetAssetDir(resolved.Path)
+				if folder == "" {
+					continue
+				}
+				link := resolved.String()
 
 				switch folder {
-				case netutil.Folders["font"]:
+				case netutil.Folders["font"], "assets/font":
 					if !contains(files.font, link) {
 						fmt.Println("Font found", "-->", link)
 						files.font = append(files.font, link)
-						netutil.Extractor(link, projectPath)
+						downloadAsset(link, projectPath)
 					}
-
-				case netutil.Folders["img"]:
+				case netutil.Folders["img"], "assets/img":
 					if !contains(files.img, link) {
 						fmt.Println("Img found", "-->", link)
 						files.img = append(files.img, link)
-						netutil.Extractor(link, projectPath)
+						downloadAsset(link, projectPath)
 					}
 				}
-				body = strings.Replace(body, link, "/"+folder+"/"+filepath.Base(link), -1)
+				newLink := "/" + strings.TrimPrefix(folder, "/") + "/" + filepath.Base(resolved.Path)
+				body = strings.Replace(body, original, newLink, -1)
 			}
 		}
 	}

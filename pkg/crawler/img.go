@@ -8,18 +8,23 @@ import (
 	"github.com/shurco/goClone/pkg/netutil"
 )
 
-func saveIMG(parsedURL *url.URL, body string) string {
+func saveIMG(absLink string, original string, body string) string {
+	parsedURL, err := url.Parse(absLink)
+	if err != nil {
+		fmt.Println("Error parsing URL:", err)
+		return body
+	}
 	if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
-		link := domain + strings.ReplaceAll("/"+parsedURL.Path, "//", "/")
+		link := absLink
 
 		if !contains(files.img, link) {
 			fmt.Println("Img found", "-->", link)
 			files.img = append(files.img, link)
-			go netutil.Extractor(link, projectPath)
+			go downloadAsset(link, projectPath)
 		}
 
-		newLink := netutil.Folders["img"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
-		return strings.Replace(body, link, newLink, -1)
+		newLink := "/" + netutil.Folders["img"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
+		return strings.Replace(body, original, newLink, -1)
 	}
 	return body
 }

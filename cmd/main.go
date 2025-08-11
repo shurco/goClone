@@ -15,7 +15,7 @@ import (
 var (
 	gitCommit = "00000000"
 	version   = "0.0.1"
-	buildDate = "07.07.2023"
+	buildDate = "2023-07-07"
 )
 
 func main() {
@@ -34,10 +34,8 @@ func main() {
 				}
 				return
 			}
-
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
-
 			if err := crawler.CloneSite(ctx, args, flags); err != nil {
 				log.Printf("%+v", err)
 				os.Exit(1)
@@ -54,6 +52,11 @@ func main() {
 	pf.BoolVarP(&flags.Cookies, "cookie", "c", false, "if set true, cookies won't send")
 	pf.BoolVarP(&flags.Robots, "robots", "r", false, "disable robots.txt checks")
 	pf.StringVarP(&flags.BrowserEndpoint, "browser_endpoint", "b", "", "chrome headless browser WS endpoint")
+	pf.StringVar(&flags.AssetsRoot, "assets_root", "assets", "root directory for downloaded assets")
+	pf.IntVar(&flags.MaxConcurrentWorkers, "max_concurrent_downloads", 8, "maximum number of concurrent downloads")
+	pf.IntVar(&flags.MaxDownloadMB, "max_download_mb", 50, "maximum size of a downloaded asset in MB")
+	pf.IntVar(&flags.HTTPTimeoutSeconds, "http_timeout_seconds", 20, "HTTP request timeout for asset downloads (seconds)")
+	pf.BoolVarP(&flags.Verbose, "verbose", "v", false, "enable verbose logging")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
