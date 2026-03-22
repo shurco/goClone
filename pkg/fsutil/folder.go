@@ -1,6 +1,9 @@
 package fsutil
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 // IsDir reports whether the named directory exists.
 func IsDir(path string) bool {
@@ -14,13 +17,14 @@ func IsDir(path string) bool {
 	return false
 }
 
-// Workdir get
+// Workdir returns the process current working directory, or "" if [os.Getwd] fails.
 func Workdir() string {
 	dir, _ := os.Getwd()
 	return dir
 }
 
-// MkDirs batch make multi dirs at once
+// MkDirs ensures each path in dirPaths exists as a directory, creating missing paths
+// with perm. Paths that already exist as directories are left unchanged.
 func MkDirs(perm os.FileMode, dirPaths ...string) error {
 	for _, dirPath := range dirPaths {
 		if !IsDir(dirPath) {
@@ -32,10 +36,11 @@ func MkDirs(perm os.FileMode, dirPaths ...string) error {
 	return nil
 }
 
-// MkSubDirs batch make multi sub-dirs at once
+// MkSubDirs creates parentDir/name for each name in subDirs when that path is not
+// already an existing directory.
 func MkSubDirs(perm os.FileMode, parentDir string, subDirs ...string) error {
 	for _, dirName := range subDirs {
-		dirPath := parentDir + "/" + dirName
+		dirPath := filepath.Join(parentDir, dirName)
 		if !IsDir(dirPath) {
 			if err := os.MkdirAll(dirPath, perm); err != nil {
 				return err

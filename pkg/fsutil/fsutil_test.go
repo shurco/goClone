@@ -61,3 +61,36 @@ func Test_WriteOSFile_VariousTypes(t *testing.T) {
 		t.Fatalf("unexpected content: %q", string(b))
 	}
 }
+
+func Test_WriteOSFile_Truncates(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "trunc.txt")
+
+	f, _ := OpenFile(p, FsCWTFlags, 0o666)
+	_, _ = WriteOSFile(f, "longer content here")
+
+	f2, err := OpenFile(p, FsCWTFlags, 0o666)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if _, err := WriteOSFile(f2, "short"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	b, _ := os.ReadFile(p)
+	if string(b) != "short" {
+		t.Fatalf("expected truncation, got %q", string(b))
+	}
+}
+
+func Test_WriteOSFile_UnknownTypeReturnsError(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "err.txt")
+	f, err := OpenFile(p, FsCWFlags, 0o666)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	_, err = WriteOSFile(f, 12345)
+	if err == nil {
+		t.Fatalf("expected error for unsupported type, got nil")
+	}
+}

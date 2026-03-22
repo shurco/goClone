@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func setEnvNoStub(t *testing.T, raw string) func() {
@@ -19,6 +18,7 @@ func setEnvNoStub(t *testing.T, raw string) func() {
 	projectURL = u
 	domain = u.Scheme + "://" + u.Host
 	projectPath = t.TempDir()
+	crawlCtx = t.Context()
 	files = filesBase{}
 	return func() {}
 }
@@ -36,24 +36,22 @@ func TestIntegration_DownloadsAssets(t *testing.T) {
 	cleanup := setEnvNoStub(t, ts.URL)
 	defer cleanup()
 
-	// trigger downloads
-	_ = saveIMG(ts.URL+"/img/a.png", "/img/a.png", "")
-	_ = saveJS(ts.URL+"/js/app.js", "/js/app.js", "")
+	_ = saveAsset("img", ts.URL+"/img/a.png", "/img/a.png", "")
+	_ = saveAsset("js", ts.URL+"/js/app.js", "/js/app.js", "")
 	_ = readCSS("body{background:url('../img/a.png')}", "style", mustParseURL(t, ts.URL+"/css/site.css"))
+
+	// Wait for all background downloads to complete instead of polling.
+	downloadWg.Wait()
 
 	check := func(p string) bool { _, err := os.Stat(p); return err == nil }
 	imgPath := filepath.Join(projectPath, "assets/img", "img-a.png")
 	jsPath := filepath.Join(projectPath, "assets/js", "js-app.js")
+	// Image referenced from CSS resolves to /img/a.png -> "img-a.png"
 	cssAsset := filepath.Join(projectPath, "assets/img", "img-a.png")
 
-	for i := 0; i < 50; i++ { // ~5s
-		if check(imgPath) && check(jsPath) && check(cssAsset) {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 	if !check(imgPath) || !check(jsPath) || !check(cssAsset) {
-		t.Fatalf("expected assets to be downloaded")
+		t.Fatalf("expected assets to be downloaded: img=%v js=%v cssAsset=%v",
+			check(imgPath), check(jsPath), check(cssAsset))
 	}
 }
 

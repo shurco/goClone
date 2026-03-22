@@ -17,6 +17,10 @@ So go ahead, give goClone a try and experience the freedom of having your favori
 
 ![Example](/.github/media/example.gif)
 
+## Requirements
+
+- **Go 1.26+** (see `go.mod` in the repository root)
+
 <a name="macos"></a>
 ## MacOS installing
 
@@ -34,15 +38,21 @@ $ brew install goclone
 
 <a name="manual"></a>
 
-## Manual
+## Build from source
+
+From the repository root (modules):
 
 ```bash
-# go get :)
-go get github.com/shurco/goClone
-# change to project directory using your GOPATH
-cd $GOPATH/src/github.com/shurco/goClone/cmd
-# build and install application
-go install
+git clone https://github.com/shurco/goClone.git
+cd goClone
+go build -o bin/goclone ./cmd
+./bin/goclone https://example.com
+```
+
+Install into `$GOBIN` (or `$GOPATH/bin`):
+
+```bash
+go install github.com/shurco/goClone/cmd@latest
 ```
 
 
@@ -70,7 +80,7 @@ Flags:
   -o, --open                           automatically open project in default browser
   -p, --proxy_string string            proxy connection string
   -r, --robots                         disable robots.txt checks
-  -s, --serve                          serve the generated files using gofiber
+  -s, --serve                          serve mirrored files over HTTP (stdlib static file server)
   -P, --servePort int                  serve port number (default 8088)
   -u, --user_agent string              custom User-Agent (default "goclone")
       --assets_root string             root directory for downloaded assets (default "assets")
@@ -79,6 +89,26 @@ Flags:
       --http_timeout_seconds int       HTTP request timeout for asset downloads (seconds) (default 20)
   -v, --verbose                        enable verbose logging
 ```
+
+### Behavior notes
+
+- The mirror is written to `./<host>/` under the current working directory.
+- **Asset downloads** (CSS/JS/images/fonts) run with a bounded concurrency limit; the CLI **waits until all scheduled downloads finish** before continuing (counts, `--open`, `--serve`).
+- **`context` / Ctrl+C:** the process uses a signal-aware context. In-flight asset fetches respect cancellation (retries stop). With **`--serve`**, the HTTP server is shut down gracefully on interrupt. The Geziyor crawl itself may not stop immediately when the signal arrives (library limitation); use interrupt primarily while serving or between runs.
+
+## Library API
+
+You can embed the mirror logic from your own Go code:
+
+```go
+ctx := context.Background() // or signal.NotifyContext, etc.
+err := crawler.CloneSite(ctx, []string{"https://example.com"}, crawler.Flags{
+    Verbose: true,
+    AssetsRoot: "assets",
+})
+```
+
+Import path: `github.com/shurco/goClone/pkg/crawler`. Lower-level helpers live under `pkg/fsutil` and `pkg/netutil`.
 
 ## Making JS Rendered Requests
 
@@ -133,4 +163,3 @@ If you run Chrome inside Docker on Linux, the container might not be able to rea
   ```
 
 If rendering produces errors like `ERR_CONNECTION_REFUSED` or `ERR_NAME_NOT_RESOLVED`, adjust Docker networking as above and ensure you pass the full DevTools WebSocket URL from `/json/version` if necessary.
-

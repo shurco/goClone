@@ -1,3 +1,4 @@
+// Goclone is a command-line tool that mirrors a website to a local directory for offline browsing.
 package main
 
 import (
@@ -45,7 +46,7 @@ func main() {
 
 	pf := rootCmd.PersistentFlags()
 	pf.BoolVarP(&flags.Open, "open", "o", false, "automatically open project in default browser")
-	pf.BoolVarP(&flags.Serve, "serve", "s", false, "serve the generated files using gofiber")
+	pf.BoolVarP(&flags.Serve, "serve", "s", false, "serve mirrored files over HTTP (stdlib static file server)")
 	pf.IntVarP(&flags.ServePort, "servePort", "P", 8088, "serve port number")
 	pf.StringVarP(&flags.ProxyString, "proxy_string", "p", "", "proxy connection string")
 	pf.StringVarP(&flags.UserAgent, "user_agent", "u", "goclone", "custom User-Agent")

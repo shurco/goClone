@@ -1,7 +1,11 @@
+// Package crawler mirrors websites for offline use: it crawls HTML pages, downloads
+// linked CSS, JavaScript, images, and fonts, rewrites URLs to local paths, and writes
+// a directory tree suitable for opening in a browser.
 package crawler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,12 +24,18 @@ import (
 	"github.com/shurco/goClone/pkg/netutil"
 )
 
+// CloneSite downloads the site at args[0] (a valid absolute http or https URL) into
+// ./<host>/ relative to the process working directory. flag configures proxy, User-Agent,
+// cookies, robots.txt handling, optional headless Chrome rendering, asset root, download
+// limits, logging, and whether to open the mirror or serve it over HTTP.
+//
+// The crawl itself does not honour ctx cancellation (Geziyor limitation); ctx is used
+// for asset downloads and, when Serve is true, for graceful HTTP server shutdown.
 func CloneSite(ctx context.Context, args []string, flag Flags) error {
 	if len(args) < 1 {
 		return fmt.Errorf("url is required")
 	}
 
-	// configure assets root and UA
 	if strings.TrimSpace(flag.AssetsRoot) != "" {
 		netutil.SetAssetRoot(flag.AssetsRoot)
 	}
@@ -40,11 +50,11 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 		SetDownloadConcurrency(flag.MaxConcurrentWorkers)
 	}
 
-	// validate URL and initialize globals
 	u, err := url.ParseRequestURI(args[0])
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("%q is not a valid URL", args[0])
 	}
+	crawlCtx = ctx
 	domain = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
 	projectURL = u
 	projectPath = filepath.Join(fsutil.Workdir(), projectURL.Host)
@@ -71,55 +81,71 @@ func CloneSite(ctx context.Context, args []string, flag Flags) error {
 
 	geziyor.NewGeziyor(geziyorOptions).Start()
 
-	// Auto-hint: if browser rendering was enabled but nothing captured, suggest Linux Docker networking fixes
-	if flag.BrowserEndpoint != "" && len(files.pages) == 0 && len(files.css) == 0 && len(files.js) == 0 && len(files.img) == 0 && len(files.font) == 0 {
-		fmt.Println("Hint: JS rendering returned no content. If you run Chrome inside Docker on Linux and see ERR_CONNECTION_REFUSED or ERR_NAME_NOT_RESOLVED:")
-		fmt.Println(" - Run Chrome with host networking: docker run --net=host --rm -d --name headless chromedp/headless-shell:stable")
-		fmt.Println(" - Or serve a URL reachable from the container (use host IP or a shared Docker network)")
-		fmt.Println(" - Ensure you pass the full DevTools WS URL from /json/version when needed")
+	// Block until every background asset download goroutine has finished.
+	downloadWg.Wait()
+
+	// Auto-hint: if browser rendering was enabled but nothing was captured.
+	if flag.BrowserEndpoint != "" {
+		filesMu.Lock()
+		empty := len(files.pages) == 0 && len(files.css) == 0 && len(files.js) == 0 && len(files.img) == 0 && len(files.font) == 0
+		filesMu.Unlock()
+		if empty {
+			fmt.Println("Hint: JS rendering returned no content. If you run Chrome inside Docker on Linux and see ERR_CONNECTION_REFUSED or ERR_NAME_NOT_RESOLVED:")
+			fmt.Println(" - Run Chrome with host networking: docker run --net=host --rm -d --name headless chromedp/headless-shell:stable")
+			fmt.Println(" - Or serve a URL reachable from the container (use host IP or a shared Docker network)")
+			fmt.Println(" - Ensure you pass the full DevTools WS URL from /json/version when needed")
+		}
 	}
 
+	filesMu.Lock()
 	fmt.Printf("Pages: %v\n", len(files.pages))
 	fmt.Printf("CSS files: %v\n", len(files.css))
 	fmt.Printf("JS files: %v\n", len(files.js))
 	fmt.Printf("Img files: %v\n", len(files.img))
 	fmt.Printf("Font files: %v\n", len(files.font))
+	filesMu.Unlock()
 
 	if flag.Open {
-		url := projectPath + "/index.html"
+		openURL := projectPath + "/index.html"
 		if flag.Serve {
-			url = fmt.Sprintf("http://localhost:%d/index.html", flag.ServePort)
+			openURL = fmt.Sprintf("http://localhost:%d/index.html", flag.ServePort)
 		}
-		cmd := open(url)
+		cmd := open(openURL)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("%v: %w", cmd.Args, err)
 		}
 	}
 
 	if flag.Serve {
-		http.Handle("/", http.FileServer(http.Dir(projectPath)))
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", flag.ServePort), nil))
+		srv := &http.Server{
+			Addr:    fmt.Sprintf(":%d", flag.ServePort),
+			Handler: http.FileServer(http.Dir(projectPath)),
+		}
+		go func() {
+			<-ctx.Done()
+			_ = srv.Shutdown(context.Background())
+		}()
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// processSrcset rewrites all URLs inside a srcset-like attribute value and triggers downloads
+// processSrcset rewrites all URLs inside a srcset-like attribute value and triggers downloads.
 func processSrcset(attr string, body string, join func(string) string) string {
 	if strings.TrimSpace(attr) == "" {
 		return body
 	}
-	parts := strings.Split(attr, ",")
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
+	for part := range strings.SplitSeq(attr, ",") {
+		p := strings.TrimSpace(part)
 		if p == "" {
 			continue
 		}
-		// p can be "url [descriptor]"
-		sp := strings.SplitN(p, " ", 2)
-		origURL := sp[0]
+		origURL, _, _ := strings.Cut(p, " ")
 		abs := join(origURL)
-		body = saveIMG(abs, origURL, body)
+		body = saveAsset("img", abs, origURL, body)
 	}
 	return body
 }
@@ -131,38 +157,37 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 
 	// CSS files
 	r.HTMLDoc.Find("link[rel='stylesheet']").Each(func(i int, s *goquery.Selection) {
-		if data, exists := s.Attr("href"); exists {
-			abs := r.JoinURL(data)
-			parsedURL, err := url.Parse(abs)
-			if err != nil {
-				fmt.Println("Error parsing URL:", err)
-				return
+		data, exists := s.Attr("href")
+		if !exists {
+			return
+		}
+		abs := r.JoinURL(data)
+		parsedURL, err := url.Parse(abs)
+		if err != nil {
+			fmt.Println("Error parsing URL:", err)
+			return
+		}
+		if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
+			if addAsset("css", abs) {
+				fmt.Println("Css found", "-->", abs)
+				g.Get(r.JoinURL(abs), parseCSS)
 			}
-			if parsedURL.Host == projectURL.Host || parsedURL.Host == "" {
-				link := abs
-				if !contains(files.css, link) {
-					fmt.Println("Css found", "-->", link)
-					files.css = append(files.css, link)
-					go downloadAsset(link, projectPath)
-					g.Get(r.JoinURL(link), parseCSS)
-				}
-				newLink := "/" + netutil.Folders["css"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
-				body = strings.Replace(body, data, newLink, -1)
-			}
+			newLink := "/" + netutil.Folders["css"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
+			body = strings.ReplaceAll(body, data, newLink)
 		}
 	})
 
 	// JS files
 	r.HTMLDoc.Find("script[src],script[data-rocket-src]").Each(func(i int, s *goquery.Selection) {
 		if data, exists := s.Attr("src"); exists {
-			body = saveJS(r.JoinURL(data), data, body)
+			body = saveAsset("js", r.JoinURL(data), data, body)
 		}
 		if data1, exists1 := s.Attr("data-rocket-src"); exists1 {
-			body = saveJS(r.JoinURL(data1), data1, body)
+			body = saveAsset("js", r.JoinURL(data1), data1, body)
 		}
 	})
 
-	// Preload assets (handle fonts/css/js)
+	// Preload assets (fonts, images, scripts, styles)
 	r.HTMLDoc.Find("link[rel='preload']").Each(func(i int, s *goquery.Selection) {
 		data, ok := s.Attr("href")
 		if !ok {
@@ -171,25 +196,23 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 		as, _ := s.Attr("as")
 		abs := r.JoinURL(data)
 		switch as {
-		case "font", "image":
-			body = saveIMG(abs, data, body)
+		case "font":
+			body = saveAsset("font", abs, data, body)
+		case "image":
+			body = saveAsset("img", abs, data, body)
 		case "script":
-			body = saveJS(abs, data, body)
+			body = saveAsset("js", abs, data, body)
 		case "style":
-			// treat like CSS link
 			parsedURL, err := url.Parse(abs)
-			if err == nil {
-				if !contains(files.css, abs) {
-					files.css = append(files.css, abs)
-					go downloadAsset(abs, projectPath)
+			if err == nil && (parsedURL.Host == projectURL.Host || parsedURL.Host == "") {
+				if addAsset("css", abs) {
 					g.Get(r.JoinURL(abs), parseCSS)
 				}
 				newLink := "/" + netutil.Folders["css"] + "/" + netutil.ReplaceSlashWithDash(parsedURL.Path)
-				body = strings.Replace(body, data, newLink, -1)
+				body = strings.ReplaceAll(body, data, newLink)
 			}
 		default:
-			// fallback to JS
-			body = saveJS(abs, data, body)
+			body = saveAsset("js", abs, data, body)
 		}
 	})
 
@@ -199,7 +222,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 			body = processSrcset(v, body, r.JoinURL)
 		}
 		if v, ok := s.Attr("data-lazy-src"); ok {
-			body = saveIMG(r.JoinURL(v), v, body)
+			body = saveAsset("img", r.JoinURL(v), v, body)
 		}
 		if v, ok := s.Attr("srcset"); ok {
 			body = processSrcset(v, body, r.JoinURL)
@@ -213,7 +236,7 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 			if parsed.Scheme == "data" || parsed.Scheme == "blob" {
 				return
 			}
-			body = saveIMG(r.JoinURL(v), v, body)
+			body = saveAsset("img", r.JoinURL(v), v, body)
 		}
 	})
 
@@ -230,25 +253,27 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 		body = readCSS(data, body, r.Response.Request.URL)
 	})
 
-	// Links to other pages
+	// Links to other pages — schedule g.Get immediately when a new page is discovered
+	// to avoid the O(n²) pattern of re-queuing all known pages at the end of each call.
 	r.HTMLDoc.Find("a").Each(func(i int, s *goquery.Selection) {
 		data, exists := s.Attr("href")
-		if exists {
-			parsedURL, err := url.Parse(data)
-			if err != nil {
-				fmt.Println("Error parsing URL:", err)
-				return
-			}
-			if (parsedURL.Host == projectURL.Host || parsedURL.Host == "") && parsedURL.Path != "/" {
-				if !contains(files.pages, parsedURL.Path) {
-					files.pages = append(files.pages, parsedURL.Path)
-				}
+		if !exists {
+			return
+		}
+		parsedURL, err := url.Parse(data)
+		if err != nil {
+			fmt.Println("Error parsing URL:", err)
+			return
+		}
+		if (parsedURL.Host == projectURL.Host || parsedURL.Host == "") && parsedURL.Path != "/" {
+			if addAsset("pages", parsedURL.Path) {
+				g.Get(r.JoinURL(data), quotesParse)
 			}
 		}
 	})
 
-	if urlPath == "" && !contains(files.pages, urlPath) {
-		files.pages = append(files.pages, urlPath)
+	if urlPath == "" {
+		addAsset("pages", urlPath)
 	}
 
 	// Write page to disk
@@ -259,17 +284,14 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 	} else {
 		filePath = filepath.Join(projectPath, cleanURLPath, "index.html")
 	}
-	index, err := fsutil.OpenFile(filePath, fsutil.FsCWFlags, 0o666)
+	index, err := fsutil.OpenFile(filePath, fsutil.FsCWTFlags, 0o666)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("quotesParse: open %s: %v", filePath, err)
+		return
 	}
-	body = strings.Replace(body, domain, "", -1)
+	body = strings.ReplaceAll(body, domain, "")
 	if _, err := fsutil.WriteOSFile(index, body); err != nil {
-		log.Fatal(err)
-	}
-
-	for _, href := range files.pages {
-		g.Get(r.JoinURL(href), quotesParse)
+		log.Printf("quotesParse: write %s: %v", filePath, err)
 	}
 }
 

@@ -12,14 +12,14 @@ import (
 )
 
 func Test_DownloadConcurrencyLimit(t *testing.T) {
-	// arrange environment
 	u, _ := url.Parse("https://example.com")
 	projectURL = u
 	domain = u.Scheme + "://" + u.Host
 	projectPath = t.TempDir()
+	crawlCtx = t.Context()
 	files = filesBase{}
 
-	// server that tracks concurrent in-flight requests
+	// Server that tracks concurrent in-flight requests.
 	var inflight int32
 	var maxInflight int32
 	mux := http.NewServeMux()
@@ -38,32 +38,27 @@ func Test_DownloadConcurrencyLimit(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	// set low concurrency
 	SetDownloadConcurrency(3)
 
-	// act: schedule many downloads
 	const jobs = 10
 	var wg sync.WaitGroup
-	wg.Add(jobs)
-	for i := 0; i < jobs; i++ {
-		go func(i int) {
-			defer wg.Done()
+	for range jobs {
+		wg.Go(func() {
 			link := ts.URL + "/img/file" + time.Now().Format("150405.000") + ".png"
-			// call package-level downloader (uses semaphore) directly
 			downloadAsset(link, projectPath)
-		}(i)
+		})
 	}
+	// Wait for all wg.Go goroutines (they launch inner download goroutines via downloadWg).
 	wg.Wait()
+	// Wait for all inner download goroutines to complete.
+	downloadWg.Wait()
 
-	// assert
 	if maxInflight > 3 {
 		t.Fatalf("expected max concurrency <= 3, got %d", maxInflight)
 	}
 
-	// and files should have been written under assets/img
-	imgDir := filepath.Join(projectPath, "assets/img")
 	if _, err := http.Dir(projectPath).Open("assets/img"); err != nil {
 		t.Fatalf("expected assets/img directory to exist: %v", err)
 	}
-	_ = imgDir
+	_ = filepath.Join(projectPath, "assets/img")
 }

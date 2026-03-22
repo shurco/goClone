@@ -14,19 +14,20 @@ func withEnv(t *testing.T, raw string) func() {
 	projectURL = u
 	domain = u.Scheme + "://" + u.Host
 	projectPath = t.TempDir()
+	crawlCtx = t.Context()
 	files = filesBase{}
 	old := downloadAsset
 	downloadAsset = func(link, projectPath string) {}
 	return func() { downloadAsset = old }
 }
 
-func Test_saveJS_RewriteAndCollect(t *testing.T) {
+func Test_saveAsset_JS_RewriteAndCollect(t *testing.T) {
 	cleanup := withEnv(t, "https://example.com")
 	defer cleanup()
 
 	body := `<script src="/static/app.js"></script>`
 	abs := "https://example.com/static/app.js"
-	out := saveJS(abs, "/static/app.js", body)
+	out := saveAsset("js", abs, "/static/app.js", body)
 	if out == body {
 		t.Fatalf("body not rewritten")
 	}
@@ -35,13 +36,13 @@ func Test_saveJS_RewriteAndCollect(t *testing.T) {
 	}
 }
 
-func Test_saveIMG_RewriteAndCollect(t *testing.T) {
+func Test_saveAsset_IMG_RewriteAndCollect(t *testing.T) {
 	cleanup := withEnv(t, "https://example.com")
 	defer cleanup()
 
 	body := `<img src="/img/logo.png">`
 	abs := "https://example.com/img/logo.png"
-	out := saveIMG(abs, "/img/logo.png", body)
+	out := saveAsset("img", abs, "/img/logo.png", body)
 	if out == body {
 		t.Fatalf("body not rewritten")
 	}
@@ -82,13 +83,18 @@ func Test_readCSS_SkipsDataAndExternal(t *testing.T) {
 	}
 }
 
-func Test_contains_Helper(t *testing.T) {
-	s := []string{"x", "y"}
-	if !contains(s, "x") {
-		t.Fatalf("expected found")
+func Test_addAsset_Deduplication(t *testing.T) {
+	cleanup := withEnv(t, "https://example.com")
+	defer cleanup()
+
+	if !addAsset("js", "https://example.com/a.js") {
+		t.Fatalf("expected true on first add")
 	}
-	if contains(s, "z") {
-		t.Fatalf("expected not found")
+	if addAsset("js", "https://example.com/a.js") {
+		t.Fatalf("expected false on duplicate add")
+	}
+	if len(files.js) != 1 {
+		t.Fatalf("expected 1 js entry, got %d", len(files.js))
 	}
 }
 
@@ -109,11 +115,13 @@ func Test_processSrcset_RewritesAll(t *testing.T) {
 func Test_Preload_AsFont(t *testing.T) {
 	cleanup := withEnv(t, "https://example.com")
 	defer cleanup()
-	// emulate preload font by directly invoking saveIMG
 	body := `<link rel="preload" as="font" href="/font/a.woff2">`
 	abs := "https://example.com/font/a.woff2"
-	out := saveIMG(abs, "/font/a.woff2", body)
+	out := saveAsset("font", abs, "/font/a.woff2", body)
 	if out == body {
 		t.Fatalf("preload font not handled")
+	}
+	if len(files.font) != 1 {
+		t.Fatalf("expected 1 font collected, got %d", len(files.font))
 	}
 }

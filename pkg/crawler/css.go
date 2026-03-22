@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,32 +14,29 @@ import (
 	"github.com/shurco/goClone/pkg/netutil"
 )
 
-func parseCSS(g *geziyor.Geziyor, r *client.Response) {
+// cssURLRegexp matches url(...) references inside CSS content.
+var cssURLRegexp = regexp.MustCompile(`url\((.*?)\)`)
+
+func parseCSS(_ *geziyor.Geziyor, r *client.Response) {
 	body := string(r.Body)
-	base := path.Base(r.Request.URL.Path)
+	// Use ReplaceSlashWithDash so the filename matches what quotesParse rewrites in HTML.
+	name := netutil.ReplaceSlashWithDash(r.Request.URL.Path)
+	cssDir := netutil.Folders["css"]
 
-	index, err := fsutil.OpenFile(filepath.Join(projectPath, "assets/css", base), fsutil.FsCWFlags, 0o666)
+	index, err := fsutil.OpenFile(filepath.Join(projectPath, cssDir, name), fsutil.FsCWTFlags, 0o666)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("parseCSS: open %s: %v", name, err)
+		return
 	}
-
 	if _, err := fsutil.WriteOSFile(index, readCSS(body, body, r.Request.URL)); err != nil {
-		log.Fatal(err)
+		log.Printf("parseCSS: write %s: %v", name, err)
 	}
 }
 
 func readCSS(data, body string, base *url.URL) string {
-	lines := strings.Split(data, "\n")
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		regExp, err := regexp.Compile(`url\((.*?)\)`)
-		if err != nil {
-			fmt.Println("Error compiling regex pattern:", err)
-		}
-
-		matches := regExp.FindAllStringSubmatch(line, -1)
-		for _, match := range matches {
+	for rawLine := range strings.SplitSeq(data, "\n") {
+		line := strings.TrimSpace(rawLine)
+		for _, match := range cssURLRegexp.FindAllStringSubmatch(line, -1) {
 			original := match[1]
 			clean := strings.ReplaceAll(strings.ReplaceAll(original, `'`, ""), `"`, "")
 			parsedURL, err := url.Parse(clean)
@@ -49,36 +45,37 @@ func readCSS(data, body string, base *url.URL) string {
 				continue
 			}
 
-			// resolve relative to base (CSS file or page URL)
 			resolved := base.ResolveReference(parsedURL)
 			if resolved.Scheme == "data" || resolved.Scheme == "blob" {
 				continue
 			}
-
-			if resolved.Host == projectURL.Host || resolved.Host == "" {
-				folder := netutil.GetAssetDir(resolved.Path)
-				if folder == "" {
-					continue
-				}
-				link := resolved.String()
-
-				switch folder {
-				case netutil.Folders["font"], "assets/font":
-					if !contains(files.font, link) {
-						fmt.Println("Font found", "-->", link)
-						files.font = append(files.font, link)
-						downloadAsset(link, projectPath)
-					}
-				case netutil.Folders["img"], "assets/img":
-					if !contains(files.img, link) {
-						fmt.Println("Img found", "-->", link)
-						files.img = append(files.img, link)
-						downloadAsset(link, projectPath)
-					}
-				}
-				newLink := "/" + strings.TrimPrefix(folder, "/") + "/" + filepath.Base(resolved.Path)
-				body = strings.Replace(body, original, newLink, -1)
+			if resolved.Host != projectURL.Host && resolved.Host != "" {
+				continue
 			}
+
+			folder := netutil.GetAssetDir(resolved.Path)
+			if folder == "" {
+				continue
+			}
+			link := resolved.String()
+
+			switch folder {
+			case netutil.Folders["font"]:
+				if addAsset("font", link) {
+					fmt.Println("Font found", "-->", link)
+					downloadAsset(link, projectPath)
+				}
+			case netutil.Folders["img"]:
+				if addAsset("img", link) {
+					fmt.Println("Img found", "-->", link)
+					downloadAsset(link, projectPath)
+				}
+			}
+
+			// Use ReplaceSlashWithDash so the CSS reference matches the filename
+			// that Extractor writes (consistent with ReplaceSlashWithDash naming).
+			newLink := "/" + strings.TrimPrefix(folder, "/") + "/" + netutil.ReplaceSlashWithDash(resolved.Path)
+			body = strings.ReplaceAll(body, original, newLink)
 		}
 	}
 	return body
