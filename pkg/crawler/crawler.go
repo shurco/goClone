@@ -247,6 +247,34 @@ func quotesParse(g *geziyor.Geziyor, r *client.Response) {
 		}
 	})
 
+	// <noscript> fallback content. Go's HTML parser keeps the contents of a
+	// <noscript> element as raw text (scripting is treated as enabled), so any
+	// <img>/<source> assets inside are invisible to the selectors above. Many
+	// sites (especially JS-rendered ones) place the real <img src> fallbacks
+	// there, so re-parse the inner HTML and extract those assets too.
+	r.HTMLDoc.Find("noscript").Each(func(i int, s *goquery.Selection) {
+		inner, err := goquery.NewDocumentFromReader(strings.NewReader(s.Text()))
+		if err != nil {
+			return
+		}
+		inner.Find("img[src],img[srcset],source[srcset]").Each(func(j int, im *goquery.Selection) {
+			if v, ok := im.Attr("srcset"); ok {
+				body = processSrcset(v, body, r.JoinURL)
+			}
+			if v, ok := im.Attr("src"); ok {
+				parsed, err := url.Parse(v)
+				if err != nil {
+					fmt.Println("Error parsing URL:", err)
+					return
+				}
+				if parsed.Scheme == "data" || parsed.Scheme == "blob" {
+					return
+				}
+				body = saveAsset("img", r.JoinURL(v), v, body)
+			}
+		})
+	})
+
 	// Inline CSS blocks
 	r.HTMLDoc.Find("style").Each(func(i int, s *goquery.Selection) {
 		data := s.Text()
